@@ -18,6 +18,15 @@ test('inline', function (t) {
     }));
 });
 
+test('inline-external-links', function (t) {
+    t.plan(1);
+    var inline = inliner({ basedir: __dirname + '/files' });
+    var r = fs.createReadStream(__dirname + '/files/index-links.html');
+    r.pipe(inline).pipe(concat(function (body) {
+        t.equal(body.toString('utf8'), expected);
+    }));
+});
+
 test('ignore-images', function (t) {
     t.plan(1);
     var inline = inliner({ basedir: __dirname + '/files', ignoreImages: true });
