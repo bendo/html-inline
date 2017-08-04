@@ -99,3 +99,8 @@ npm install html-inline
 # license
 
 MIT
+
+# to test requests
+sudo tcpflow -p -c -i eth0 port 80 | grep -oE '(GET|POST|HEAD) .* HTTP/1.[01]|Host: .*'
+
+
