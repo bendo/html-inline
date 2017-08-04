@@ -2,6 +2,8 @@ var trumpet = require('trumpet');
 var through = require('through2');
 var fs = require('fs');
 var path = require('path');
+var isUrl = require('is-url');
+var fetch = require('node-fetch');
 
 module.exports = function (opts) {
     if (!opts) opts = {};
@@ -12,16 +14,16 @@ module.exports = function (opts) {
         tr.selectAll('script[src]', function (node) {
             var file = fix(node.getAttribute('src'));
             node.removeAttribute('src');
-            fs.createReadStream(file)
-                .pipe(node.createWriteStream())
-            ;
+            fs.createReadStream(file).pipe(node.createWriteStream());
         });
     }
+
     if (!(opts.ignoreImages || opts['ignore-images'])) {
         tr.selectAll('img[src]', function (node) {
             inline64(node, 'src');
         })
     }
+
     if (!(opts.ignoreLinks || opts['ignore-links'])) {
         tr.selectAll('link[href]', function (node) {
             var rel = (node.getAttribute('rel') || '').toLowerCase();
@@ -29,6 +31,7 @@ module.exports = function (opts) {
             inline64(node, 'href');
         })
     }
+
     if (!(opts.ignoreStyles || opts['ignore-styles'])) {
         tr.selectAll('link[href]', function (node) {
             var rel = node.getAttribute('rel').toLowerCase();
@@ -46,18 +49,33 @@ module.exports = function (opts) {
     return tr;
 
     function fix (p) {
-        if(path.isAbsolute(p)) {
+        console.log('link', p);
+        if (isUrl(p)) {
+            console.log('result', resolveUrl(p));
+        } else if (path.isAbsolute(p)) {
+            console.log('DONT');
             return path.resolve(basedir, path.relative('/', p));
         } else {
+            console.log('DONT');
             return path.resolve(basedir, p);
         }
     }
-    function enc (s) {
-        return s.replace(/"/g, '&#34;')
-            .replace(/>/g, '&gt;')
-            .replace(/</g, '&lt;')
-        ;
+
+    function resolveUrl(url) {
+        console.log('starting', url);
+        fetch('http://code.jquery.com/jquery-2.1.4.min.js')
+            .then(function(res) {
+                console.log(res.ok);
+                var dest = fs.createWriteStream('temp.js');
+                return res.body.pipe(dest);
+            });
+        console.log('is a link', url);
     }
+
+    function enc (s) {
+        return s.replace(/"/g, '&#34;').replace(/>/g, '&gt;').replace(/</g, '&lt;');
+    }
+
     function inline64 (node, name) {
         var href = node.getAttribute(name);
         if (/^data:/.test(href)) return;
@@ -71,24 +89,24 @@ module.exports = function (opts) {
         });
         var ext = path.extname(file).replace(/^\./, '').toLowerCase();
         var type = node.getAttribute('type')
-        if (!type) type = {
-            svg: 'image/svg+xml',
-            png: 'image/png',
-            jpg: 'image/jpeg',
-            jpeg: 'image/jpeg',
-            gif: 'image/jpeg'
-        }[ext] || 'image/png'
+            if (!type) type = {
+                svg: 'image/svg+xml',
+                png: 'image/png',
+                jpg: 'image/jpeg',
+                jpeg: 'image/jpeg',
+                gif: 'image/jpeg'
+            }[ext] || 'image/png'
         w.write(' ' + name + '="data:' + type + ';base64,');
         fs.createReadStream(file).pipe(through(write, end));
-        
+
         var bytes = 0, last = null;
-        
+
         function write (buf, enc, next) {
             if (last) {
                 buf = Buffer.concat([ last, buf ]);
                 last = null;
             }
-            
+
             var b;
             if (buf.length % 3 === 0) {
                 b = buf;
@@ -98,9 +116,10 @@ module.exports = function (opts) {
                 last = buf.slice(buf.length - buf.length % 3);
             }
             w.write(b.toString('base64'));
-            
+
             next();
         }
+
         function end () {
             if (last) w.write(last.toString('base64'));
             w.end('">');

@@ -18,7 +18,7 @@ test('inline', function (t) {
     }));
 });
 
-test('inline-external-links', function (t) {
+test.only('inline-external-links', function (t) {
     t.plan(1);
     var inline = inliner({ basedir: __dirname + '/files' });
     var r = fs.createReadStream(__dirname + '/files/index-links.html');
